@@ -75,16 +75,16 @@ void reg_set_value(uint8_t reg, exception_pushstack *ps, uint32_t value) {
 void handle_ld_st_single(uint16_t opcode, exception_pushstack *ps) {
   uint8_t reg;
   uintptr_t addr;
-  uint8_t opb;
+  uint8_t opa = (opcode>>12)&0b1111;
+  uint8_t opb = (opcode>>9)&0b111;
   bool ld_nst;
   if (opcode <= 0b0101'111'000000000) {
     uint8_t rm = (opcode>>6)&0b111;
     uint8_t rn = (opcode>>3)&0b111;
-    opb = (opcode>>9)&0b111;
     reg = (opcode>>0)&0b111;
     PRINT("rm %1x rn %1x reg %1x\n", rm, rn, reg);
     addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
-  }else if (opcode <= 0b0110'011'000000000) {
+  }else if (opcode <= 0b0110'111'000000000) {
     uint8_t imm5 = (opcode>>6)&0b11111;
     uint8_t rn = (opcode>>3)&0b111;
     ld_nst = opcode&0b00001000'00000000;
@@ -102,23 +102,29 @@ void handle_ld_st_single(uint16_t opcode, exception_pushstack *ps) {
     PRINT("load from %p into r%d\n", addr, reg);
     addr -= ExtmemMapper::s_base_addr;
     uint32_t regval = 0;
-    switch(opb) {
-      case 0b011: regval = (int8_t)ExtmemMapper::s_memory->read_byte(addr); break;
-      case 0b100: regval = ExtmemMapper::s_memory->read_dword(addr); break;
-      case 0b101: regval = ExtmemMapper::s_memory->read_word(addr); break;
-      case 0b110: regval = ExtmemMapper::s_memory->read_byte(addr); break;
-      case 0b111: regval = (int16_t)ExtmemMapper::s_memory->read_word(addr); break;
-    }
+    if (opa == 0b0101)
+      switch(opb) {
+        case 0b011: regval = (int8_t)ExtmemMapper::s_memory->read_byte(addr); break;
+        case 0b100: regval = ExtmemMapper::s_memory->read_dword(addr); break;
+        case 0b101: regval = ExtmemMapper::s_memory->read_word(addr); break;
+        case 0b110: regval = ExtmemMapper::s_memory->read_byte(addr); break;
+        case 0b111: regval = (int16_t)ExtmemMapper::s_memory->read_word(addr); break;
+      }
+    else if (opa == 0b0110)
+      regval = ExtmemMapper::s_memory->read_dword(addr);
     reg_set_value(reg, ps, regval);
   } else {
     uint32_t regval = reg_get_value(reg, ps);
     PRINT("store %08lx from r%d into %p\n", regval, reg, addr);
     addr -= ExtmemMapper::s_base_addr;
-    switch(opb) {
-      case 0b000: ExtmemMapper::s_memory->write_dword(addr, regval); break;
-      case 0b001: ExtmemMapper::s_memory->write_word(addr, regval); break;
-      case 0b010: ExtmemMapper::s_memory->write_byte(addr, regval); break;
-    }
+    if (opa == 0b0101)
+      switch(opb) {
+        case 0b000: ExtmemMapper::s_memory->write_dword(addr, regval); break;
+        case 0b001: ExtmemMapper::s_memory->write_word(addr, regval); break;
+        case 0b010: ExtmemMapper::s_memory->write_byte(addr, regval); break;
+      }
+    else if (opa == 0b0110)
+      ExtmemMapper::s_memory->write_dword(addr, regval);
   }
 }
 
