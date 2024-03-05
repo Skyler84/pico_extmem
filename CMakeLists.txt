@@ -28,6 +28,7 @@ endif()
 add_library(pico_extmem 
     src/spiram.cpp
     src/extmem_mapper.cpp
+    src/cached_memory.cpp
 )
 target_include_directories(pico_extmem PUBLIC src/include)
 target_link_libraries(pico_extmem pico_stdlib pico_stdio_usb hardware_exception hardware_spi)
