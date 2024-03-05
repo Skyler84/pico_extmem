@@ -35,7 +35,7 @@ int main(){
 
   SpiRam extmem{19, 16, 18, 3};
   CachedMemory cache{&extmem};
-  ExtmemMapper::init(&cache, 0x0300'0000);
+  ExtmemMapper::init(&cache, 0x3000'0000);
 
   // Allow the usb serial time to connect
   for (int i = 10; i; --i) {
@@ -55,11 +55,14 @@ int main(){
   // (*(volatile int*)(0x3000'0000)) = 0x5678;
 
   printf("Hardfault handled\n");
-  printf("Value at addr 0: %08lx\n", extmem.read_dword(0));
-  extmem.write_dword(4, 0x1234);
+  printf("Value at addr 0: %08lx\n", cache.read_dword(0));
+  cache.write_dword(4, 0x1234);
   printf("Reading 0x30000000: %08lx\n", (*(volatile int*)(0x3000'0000)));
   printf("Reading 0x30000004: %08lx\n", (*(volatile int*)(0x3000'0004)));
 
   time_hardfaults();
+  for (int i = 5; i; --i) {
+    printf("Cooling down, %ds\n", i);
+  }
   while(true);
 }
