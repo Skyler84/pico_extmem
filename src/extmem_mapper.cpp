@@ -72,91 +72,153 @@ void reg_set_value(uint8_t reg, exception_pushstack *ps, uint32_t value) {
   ((uintptr_t*)(ps))[exception_pushstack::regs_mapping[reg]] = value;
 }
 
-void handle_ld_st_single(uint16_t opcode, exception_pushstack *ps) {
-  uint8_t reg;
-  uintptr_t addr;
-  uint8_t opa = (opcode>>12)&0b1111;
-  uint8_t opb = (opcode>>9)&0b111;
-  bool ld_nst;
-  if (opcode <= 0b0101'111'000000000) {
-    uint8_t rm = (opcode>>6)&0b111;
-    uint8_t rn = (opcode>>3)&0b111;
-    reg = (opcode>>0)&0b111;
-    PRINT("rm %1x rn %1x reg %1x\n", rm, rn, reg);
-    addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
-  }else if (opcode <= 0b0110'111'000000000) {
-    uint8_t imm5 = (opcode>>6)&0b11111;
-    uint8_t rn = (opcode>>3)&0b111;
-    ld_nst = opcode&0b00001000'00000000;
-    reg = (opcode>>0)&0b111;
-    PRINT("imm5 %02x rn %1x reg %1x\n", imm5, rn, reg);
-    addr = reg_get_value(rn, ps) + imm5;
-  }else {
-    reg = (opcode>>8)&0b111;
-    uint8_t imm8 = (opcode>>0)&0b11111111;
-    addr = reg_get_value(Registers::SP, ps) + imm8;
-    PRINT("imm8 %02x reg %1x\n", imm8, reg);
+#define DECODE_REG3(opcode) std::tuple<uint8_t, uint8_t, uint8_t>{(opcode>>6)&0b111,(opcode>>3)&0b111,(opcode>>0)&0b111}
+
+void handle_0101_000_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  auto regval = reg_get_value(rt, ps);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  ExtmemMapper::s_memory->write_dword(addr, regval);
+}
+void handle_0101_001_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  auto regval = reg_get_value(rt, ps);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  ExtmemMapper::s_memory->write_word(addr, regval);
+}
+void handle_0101_010_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  auto regval = reg_get_value(rt, ps);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  ExtmemMapper::s_memory->write_byte(addr, regval);
+}
+void handle_0101_011_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  int8_t val = ExtmemMapper::s_memory->read_byte(addr);
+  reg_set_value(rt, ps, val);
+}
+void handle_0101_100_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  uint32_t val = ExtmemMapper::s_memory->read_dword(addr);
+  reg_set_value(rt, ps, val);
+}
+void handle_0101_101_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  uint16_t val = ExtmemMapper::s_memory->read_word(addr);
+  reg_set_value(rt, ps, val);
   }
-  PRINT("addr %p reg %1x\n", addr, reg);
-  if (ld_nst) {
-    PRINT("load from %p into r%d\n", addr, reg);
-    addr -= ExtmemMapper::s_base_addr;
-    uint32_t regval = 0;
-    if (opa == 0b0101)
-      switch(opb) {
-        case 0b011: regval = (int8_t)ExtmemMapper::s_memory->read_byte(addr); break;
-        case 0b100: regval = ExtmemMapper::s_memory->read_dword(addr); break;
-        case 0b101: regval = ExtmemMapper::s_memory->read_word(addr); break;
-        case 0b110: regval = ExtmemMapper::s_memory->read_byte(addr); break;
-        case 0b111: regval = (int16_t)ExtmemMapper::s_memory->read_word(addr); break;
+void handle_0101_110_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  uint8_t val = ExtmemMapper::s_memory->read_byte(addr);
+  reg_set_value(rt, ps, val);
       }
-    else if (opa == 0b0110)
-      regval = ExtmemMapper::s_memory->read_dword(addr);
-    reg_set_value(reg, ps, regval);
-  } else {
-    uint32_t regval = reg_get_value(reg, ps);
-    PRINT("store %08lx from r%d into %p\n", regval, reg, addr);
-    addr -= ExtmemMapper::s_base_addr;
-    if (opa == 0b0101)
-      switch(opb) {
-        case 0b000: ExtmemMapper::s_memory->write_dword(addr, regval); break;
-        case 0b001: ExtmemMapper::s_memory->write_word(addr, regval); break;
-        case 0b010: ExtmemMapper::s_memory->write_byte(addr, regval); break;
+void handle_0101_111_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [rm, rn, rt] = DECODE_REG3(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + reg_get_value(rm, ps);
+  int16_t val = ExtmemMapper::s_memory->read_word(addr);
+  reg_set_value(rt, ps, val);
       }
-    else if (opa == 0b0110)
+#define DECODE_IMM5_REG2(opcode) std::tuple<uint8_t, uint8_t, uint8_t>{(opcode>>6)&0b11111,(opcode>>3)&0b111,(opcode>>0)&0b111}
+void handle_0110_0xx_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [imm5, rn, rt] = DECODE_IMM5_REG2(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + imm5;
+  auto regval = reg_get_value(rt, ps);
       ExtmemMapper::s_memory->write_dword(addr, regval);
   }
+void handle_0110_1xx_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [imm5, rn, rt] = DECODE_IMM5_REG2(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + imm5;
+  auto val = ExtmemMapper::s_memory->read_dword(addr);
+  reg_set_value(rt, ps, val);
+}
+void handle_0111_0xx_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [imm5, rn, rt] = DECODE_IMM5_REG2(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + imm5;
+  auto regval = reg_get_value(rt, ps);
+  ExtmemMapper::s_memory->write_byte(addr, regval);
+}
+void handle_0111_1xx_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [imm5, rn, rt] = DECODE_IMM5_REG2(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + imm5;
+  auto val = ExtmemMapper::s_memory->read_byte(addr);
+  reg_set_value(rt, ps, val);
+}
+void handle_1000_0xx_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [imm5, rn, rt] = DECODE_IMM5_REG2(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + imm5;
+  auto regval = reg_get_value(rt, ps);
+  ExtmemMapper::s_memory->write_word(addr, regval);
+}
+void handle_1000_1xx_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [imm5, rn, rt] = DECODE_IMM5_REG2(opcode);
+  uintptr_t addr = reg_get_value(rn, ps) + imm5;
+  auto val = ExtmemMapper::s_memory->read_word(addr);
+  reg_set_value(rt, ps, val);
+}
+#define DECODE_REG_IMM8(opcode) std::tuple<uint8_t, uint8_t>{(opcode>>8)&0b111, opcode&0xff}
+void handle_1001_0xx_store(uint16_t opcode, exception_pushstack *ps) {
+  auto [rt, imm8] = DECODE_REG_IMM8(opcode);
+  uintptr_t addr = reg_get_value(Registers::SP, ps) + imm8;
+  auto regval = reg_get_value(rt, ps);
+  ExtmemMapper::s_memory->write_word(addr, regval);
+}
+void handle_1001_1xx_load(uint16_t opcode, exception_pushstack *ps) {
+  auto [rt, imm8] = DECODE_REG_IMM8(opcode);
+  uintptr_t addr = reg_get_value(Registers::SP, ps) + imm8;
+  auto val = ExtmemMapper::s_memory->read_word(addr);
+  reg_set_value(rt, ps, val);
 }
 
-constexpr std::array<OpCodeType, 64> construct_opcode_table(){
-  std::array<OpCodeType, 64> out{};
-  for (int i = 0; i < 16; i++) {
+constexpr auto construct_opcode_table(){
+  std::array<OpCodeType, 128> out{};
+  for (int i = 0; i < 0b0100000; i++) {
     out[i] = {"sh/add/sub/mov/cmp"};
   }
-  out[0b010000] = {"data proc"};
-  out[0b010001] = {"spec/branch"};
-  out[0b010010] = {"load lit"};
-  out[0b010011] = {"load lit"};
-  for (int i = 0b0101'00; i <= 0b100'111; i++) {
-    out[i] = OpCodeType{"load/st single", &handle_ld_st_single};
+  out[0b0100000] = {"data proc"};
+  out[0b0100001] = {"data proc"};
+  out[0b0100010] = {"spec/branch"};
+  out[0b0100011] = {"spec/branch"};
+  out[0b0100100] = {"load lit"};
+  out[0b0100101] = {"load lit"};
+  out[0b0100110] = {"load lit"};
+  out[0b0100111] = {"load lit"};
+
+  out[0b0101'000] = OpCodeType{"Store Register", &handle_0101_000_store};
+  out[0b0101'001] = OpCodeType{"Store Register Halfword", &handle_0101_001_store};
+  out[0b0101'010] = OpCodeType{"Store Register Byte", &handle_0101_010_store};
+  out[0b0101'011] = OpCodeType{"Load Register Signed Byte", &handle_0101_011_load};
+  out[0b0101'100] = OpCodeType{"Load Register", &handle_0101_100_load};
+  out[0b0101'101] = OpCodeType{"Load Register Halword", &handle_0101_101_load};
+  out[0b0101'110] = OpCodeType{"Load Register Byte", &handle_0101_110_load};
+  out[0b0101'111] = OpCodeType{"Load Register Signed Halfword", &handle_0101_111_load};
+  for (int i = 0b0110'000; i <= 0b0110'011; i++) out[i] = OpCodeType{"Store Register", &handle_0110_0xx_store};
+  for (int i = 0b0110'100; i <= 0b0110'111; i++) out[i] = OpCodeType{"Load Register", &handle_0110_1xx_load};
+  for (int i = 0b0111'000; i <= 0b0111'011; i++) out[i] = OpCodeType{"Store Register Byte", &handle_0111_0xx_store};
+  for (int i = 0b0111'100; i <= 0b0111'111; i++) out[i] = OpCodeType{"Load Register Byte", &handle_0111_1xx_load};
+  for (int i = 0b1000'000; i <= 0b1000'011; i++) out[i] = OpCodeType{"Store Register Halfword", &handle_1000_0xx_store};
+  for (int i = 0b1000'100; i <= 0b1000'111; i++) out[i] = OpCodeType{"Load Register Halfword", &handle_1000_1xx_load};
+  for (int i = 0b1001'000; i <= 0b1001'011; i++) out[i] = OpCodeType{"Store Register", &handle_1001_0xx_store};
+  for (int i = 0b1001'100; i <= 0b1001'111; i++) out[i] = OpCodeType{"Load Register", &handle_1001_1xx_load};
+  for (int i = 0b1010000; i <= 0b1010111; i++) {
+    out[i] = {"gen pc rel"};
   }
-  out[0b101000] = {"gen pc rel"};
-  out[0b101001] = {"gen pc rel"};
-  out[0b101010] = {"gen sp rel"};
-  out[0b101011] = {"gen sp rel"};
-  for (int i = 0b1011'00; i <= 0b1011'11; i++) {
+  for (int i = 0b1011'000; i <= 0b1011'111; i++) {
     out[i] = {"misc"};
   }
-  for (int i = 0b11000'0; i <= 0b11000'1; i++) {
+  for (int i = 0b11000'00; i <= 0b11000'11; i++) {
     out[i] = {"st mult"};
   }
-  for (int i = 0b11001'0; i <= 0b11001'1; i++) {
+  for (int i = 0b11001'00; i <= 0b11001'11; i++) {
     out[i] = {"ld mult"};
   }
-  for (int i = 0b1101'00; i <= 0b1101'11; i++) {
+  for (int i = 0b1101'000; i <= 0b1101'111; i++) {
     out[i] = {"cond br/svc"};
   }
-  for (int i = 0b11100'0; i <= 0b11100'1; i++) {
+  for (int i = 0b11100'00; i <= 0b11100'11; i++) {
     out[i] = {"br"};
   }
 
@@ -164,7 +226,6 @@ constexpr std::array<OpCodeType, 64> construct_opcode_table(){
 }
 
 auto opcode_types = construct_opcode_table();
-
 
 void ExtmemMapper::handle_hardfault(void *_ps) {
   exception_pushstack *ps = (exception_pushstack*)_ps;
@@ -176,12 +237,13 @@ void ExtmemMapper::handle_hardfault(void *_ps) {
   PRINT("sp %p\n", reg_get_value(Registers::SP, ps));
   PRINT("pc %p\n", reg_get_value(Registers::PC, ps));
   uint16_t cur_thumb_instr = *(uint16_t*)(ps->PC);
-  PRINT("%s\n", opcode_types[cur_thumb_instr>>10].type);
+  int opcode_nbits=7;
+  PRINT("%s\n", opcode_types[cur_thumb_instr>>(16-opcode_nbits)].type);
 
   ps->PC += sizeof(uint16_t);
 
-  if (opcode_types[cur_thumb_instr>>10].handle) {
-    (*opcode_types[cur_thumb_instr>>10].handle)(cur_thumb_instr, ps);
+  if (opcode_types[cur_thumb_instr>>(16-opcode_nbits)].handle) {
+    (*opcode_types[cur_thumb_instr>>(16-opcode_nbits)].handle)(cur_thumb_instr, ps);
   }
 }
 
@@ -192,7 +254,19 @@ void ExtmemMapper::hardfault_handler(void) {
     "push {r4, r5, r6, r7, lr}\n\t"
     "mov r0, sp\n\t"
     "bl handle_hardfault\n\t"
+    // "adds \n\t"
+    // "adds r3, r3, r2\n\t"
+    // "ldr r3, [r3, #4]\n\t"
+    // "cmp r3, #0\n\t"
+    // "beq.n nohandle%=\n\t"
+    // "blx r3\n\t"
+    // "nohandle%=:\n\t"
+    // "ldr r2, [sp, #20]\n\t"
+    // "ldr r1, [r2, #0]"
+    // "adds r2, r2, #2\n\t"
+    // "str r2, [sp, #20]\n\t"
     "pop {r4, r5, r6, r7, pc}\n\t"
+    :: "r"(&opcode_types)
   );
 }
 
