@@ -1,7 +1,15 @@
 #include "cached_memory.hpp"
 #include "string.h"
+#include "stdio.h"
 
+
+#if DEBUG
+#define PRINT(...) ({printf(__VA_ARGS__); fflush(stdout);})
+#define ASSERT(cond) if(!(cond)){printf("Assert failed: %s\n%s:%d", #cond, __FILE__, __LINE__); while(1);}
+#else
 #define ASSERT(cond)
+#define PRINT(...)
+#endif
 
 CachedMemory::CachedMemory(IMemory *memory)
 : m_memory{memory}
@@ -39,6 +47,7 @@ void CachedMemory::read_data(uintptr_t addr, uint32_t nbytes, uint8_t *data) {
 }
 
 void CachedMemory::write_byte(uintptr_t addr, uint8_t value) {
+  PRINT("writing %02x to %p\n", value, addr);
   line_index_t line = cache_line_lookup_fetch(addr&~s_cache_line_addr_mask);
   ASSERT(line != CACHE_MISS);
   *(uint8_t*)&m_cache_lines[line][addr&s_cache_line_addr_mask] = value;
@@ -46,6 +55,7 @@ void CachedMemory::write_byte(uintptr_t addr, uint8_t value) {
 }
 
 void CachedMemory::write_word(uintptr_t addr, uint16_t value) {
+  PRINT("writing %04x to %p\n", value, addr);
   line_index_t line = cache_line_lookup_fetch(addr&~s_cache_line_addr_mask);
   ASSERT(line != CACHE_MISS);
   *(uint16_t*)&m_cache_lines[line][addr&s_cache_line_addr_mask] = value;
@@ -53,6 +63,7 @@ void CachedMemory::write_word(uintptr_t addr, uint16_t value) {
 }
 
 void CachedMemory::write_dword(uintptr_t addr, uint32_t value) {
+  PRINT("writing %08x to %p\n", value, addr);
   line_index_t line = cache_line_lookup_fetch(addr&~s_cache_line_addr_mask);
   ASSERT(line != CACHE_MISS);
   *(uint32_t*)&m_cache_lines[line][addr&s_cache_line_addr_mask] = value;
@@ -69,7 +80,7 @@ void CachedMemory::write_data(uintptr_t addr, uint32_t nbytes, const uint8_t *da
 }
 
 CachedMemory::line_index_t CachedMemory::cache_line_lookup(uintptr_t addr) {
-  ASSERT(addr&s_cache_line_addr_mask == 0);
+  ASSERT((addr&s_cache_line_addr_mask) == 0);
   for (line_index_t i = 0; i < s_num_cache_lines; i++) {
     if (m_cache_line_lookups[i].masked_addr == addr)
       return i;
@@ -78,21 +89,23 @@ CachedMemory::line_index_t CachedMemory::cache_line_lookup(uintptr_t addr) {
 }
 
 CachedMemory::line_index_t CachedMemory::cache_line_lookup_fetch(uintptr_t addr) {
-  ASSERT(addr&s_cache_line_addr_mask == 0);
+  ASSERT((addr&s_cache_line_addr_mask) == 0);
   line_index_t line = cache_line_lookup(addr);
   if (line == CACHE_MISS) {
+    PRINT("CACHE MISS (%p)\n", addr);
     //evict cache lines in sequence
     line = m_next_evict;
     m_next_evict++;
     cache_line_evict(line);
     cache_line_fetch(line, addr);
   }
+  PRINT("CACHE %p on %d\n", addr, line);
   return line;
 }
 
 void CachedMemory::cache_line_fetch(line_index_t line, uintptr_t addr) {
   ASSERT(m_cache_line_lookups[line].dirty == false);
-  ASSERT(addr&s_cache_line_addr_mask == 0);
+  ASSERT((addr&s_cache_line_addr_mask) == 0);
   m_cache_line_lookups[line].masked_addr = addr;
   m_memory->read_data(addr, s_cache_line_size, m_cache_lines[line].data());
 }
