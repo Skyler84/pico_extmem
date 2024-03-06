@@ -31,6 +31,7 @@ add_library(pico_extmem
     src/cached_memory.cpp
 )
 target_include_directories(pico_extmem PUBLIC src/include)
+target_compile_definitions(pico_extmem PRIVATE DEBUG=0)
 target_link_libraries(pico_extmem pico_stdlib pico_stdio_usb hardware_exception hardware_spi)
 
 add_subdirectory(examples/)

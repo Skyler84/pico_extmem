@@ -166,13 +166,40 @@ void handle_1001_0xx_store(uint16_t opcode, exception_pushstack *ps) {
   auto [rt, imm8] = DECODE_REG_IMM8(opcode);
   uintptr_t addr = reg_get_value(Registers::SP, ps) + imm8 - ExtmemMapper::s_base_addr;
   auto regval = reg_get_value(rt, ps);
-  ExtmemMapper::s_memory->write_word(addr, regval);
+  ExtmemMapper::s_memory->write_dword(addr, regval);
 }
 void handle_1001_1xx_load(uint16_t opcode, exception_pushstack *ps) {
   auto [rt, imm8] = DECODE_REG_IMM8(opcode);
   uintptr_t addr = reg_get_value(Registers::SP, ps) + imm8 - ExtmemMapper::s_base_addr;
-  auto val = ExtmemMapper::s_memory->read_word(addr);
+  auto val = ExtmemMapper::s_memory->read_dword(addr);
   reg_set_value(rt, ps, val);
+}
+
+#define DECODE_REG_REGS DECODE_REG_IMM8
+void handle_1100_0xx_stm(uint16_t opcode, exception_pushstack *ps) {
+  auto [rn, regs] = DECODE_REG_REGS(opcode);
+  auto addr = reg_get_value(rn, ps);
+  for (uint8_t i = 0; i < 8; i++) {
+    if (regs & 1) {
+      ExtmemMapper::s_memory->write_dword(addr, reg_get_value(i, ps));
+      addr += 4;
+    }
+    regs >>= 1;
+  }
+  reg_set_value(rn, ps, addr);
+}
+void handle_1100_1xx_ldm(uint16_t opcode, exception_pushstack *ps) {
+  auto [rn, regs] = DECODE_REG_REGS(opcode);
+  auto addr = reg_get_value(rn, ps);
+  for (uint8_t i = 0; i < 8; i++) {
+    if (regs & 1) {
+      auto val = ExtmemMapper::s_memory->read_dword(addr);
+      reg_set_value(i, ps, val);
+      addr += 4;
+    }
+    regs >>= 1;
+  }
+  reg_set_value(rn, ps, addr);
 }
 
 constexpr auto construct_opcode_table(){
@@ -215,11 +242,11 @@ constexpr auto construct_opcode_table(){
   for (int i = 0b1011'000; i <= 0b1011'111; i++) {
     out[i] = {"misc"};
   }
-  for (int i = 0b11000'00; i <= 0b11000'11; i++) {
-    out[i] = {"st mult"};
+  for (int i = 0b1100'000; i <= 0b1100'011; i++) {
+    out[i] = OpCodeType{"Store Multiple", handle_1100_0xx_stm};
   }
-  for (int i = 0b11001'00; i <= 0b11001'11; i++) {
-    out[i] = {"ld mult"};
+  for (int i = 0b1100'100; i <= 0b1100'111; i++) {
+    out[i] = OpCodeType{"Load Multiple", handle_1100_1xx_ldm};
   }
   for (int i = 0b1101'000; i <= 0b1101'111; i++) {
     out[i] = {"cond br/svc"};

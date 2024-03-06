@@ -15,7 +15,7 @@ void time_hardfaults(){
 
   for (uint32_t i = 0; i < niters; i++) {
     (*(volatile int*)(0x3000'0000));
-    (*(volatile int*)(0x3000'0000)) = i;
+    (*(volatile int*)(0x3000'0000 + i*4)) = i;
     watchdog_update();
   }
 
