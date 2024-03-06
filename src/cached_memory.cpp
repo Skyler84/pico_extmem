@@ -7,7 +7,9 @@ CachedMemory::CachedMemory(IMemory *memory)
 : m_memory{memory}
 , m_next_evict{0}
 {
-
+  for (auto &e : m_cache_line_lookups) {
+    e.masked_addr = -1;
+  }
 }
 
 uint8_t CachedMemory::read_byte(uintptr_t addr) {
