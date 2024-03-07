@@ -4,6 +4,7 @@
 #include <array>
 #include <memory>
 
+template<unsigned int ncl, unsigned int clsp2>
 class CachedMemory final : public IMemory {
 public:
 
@@ -58,3 +59,10 @@ private:
   void cache_line_fetch(line_index_t line, uintptr_t addr);
 
 };
+
+#define TPL_USING(name, tpl, ...) template class tpl<__VA_ARGS__>; using name = tpl<__VA_ARGS__>
+
+TPL_USING(Cached_16_32, CachedMemory, 16, 5);
+TPL_USING(Cached_32_32, CachedMemory, 32, 5);
+TPL_USING(Cached_64_32, CachedMemory, 64, 5);
+TPL_USING(Cached_64_64, CachedMemory, 64, 6);
