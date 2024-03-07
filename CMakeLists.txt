@@ -23,6 +23,7 @@ add_compile_options(-Wall
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-maybe-uninitialized)
 endif()
+add_compile_options(-O3)
 
 
 add_library(pico_extmem 
@@ -35,3 +36,4 @@ target_compile_definitions(pico_extmem PRIVATE DEBUG=0)
 target_link_libraries(pico_extmem pico_stdlib pico_stdio_usb hardware_exception hardware_spi)
 
 add_subdirectory(examples/)
+add_subdirectory(tests/)
