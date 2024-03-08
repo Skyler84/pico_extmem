@@ -3,6 +3,7 @@
 #include "mem_interface.hpp"
 #include <array>
 #include <memory>
+#include <map>
 
 template<unsigned int ncl, unsigned int clsp2>
 class CachedMemory final : public IMemory {
@@ -53,6 +54,8 @@ private:
     CacheLineData,
     s_num_cache_lines
   > m_cache_line_lookups;
+  
+  std::map<uintptr_t, line_index_t> m_cache_line_indexes;
 
   line_index_t cache_line_lookup(uintptr_t addr);
   line_index_t cache_line_lookup_fetch(uintptr_t addr);
@@ -62,7 +65,38 @@ private:
 
 #define TPL_USING(name, tpl, ...) template class tpl<__VA_ARGS__>; using name = tpl<__VA_ARGS__>
 
-TPL_USING(Cached_16_32, CachedMemory, 16, 5);
-TPL_USING(Cached_32_32, CachedMemory, 32, 5);
-TPL_USING(Cached_64_32, CachedMemory, 64, 5);
-TPL_USING(Cached_64_64, CachedMemory, 64, 6);
+TPL_USING(Cached_8_8,    CachedMemory, 8, 3);
+TPL_USING(Cached_8_16,   CachedMemory, 8, 4);
+TPL_USING(Cached_8_32,   CachedMemory, 8, 5);
+TPL_USING(Cached_8_64,   CachedMemory, 8, 6);
+TPL_USING(Cached_8_128,  CachedMemory, 8, 7);
+TPL_USING(Cached_8_256,  CachedMemory, 8, 8);
+TPL_USING(Cached_8_512,  CachedMemory, 8, 9);
+TPL_USING(Cached_8_1024, CachedMemory, 8, 10);
+
+TPL_USING(Cached_16_8,    CachedMemory, 16, 3);
+TPL_USING(Cached_16_16,   CachedMemory, 16, 4);
+TPL_USING(Cached_16_32,   CachedMemory, 16, 5);
+TPL_USING(Cached_16_64,   CachedMemory, 16, 6);
+TPL_USING(Cached_16_128,  CachedMemory, 16, 7);
+TPL_USING(Cached_16_256,  CachedMemory, 16, 8);
+TPL_USING(Cached_16_512,  CachedMemory, 16, 9);
+TPL_USING(Cached_16_1024, CachedMemory, 16, 10);
+
+TPL_USING(Cached_32_8,    CachedMemory, 32, 3);
+TPL_USING(Cached_32_16,   CachedMemory, 32, 4);
+TPL_USING(Cached_32_32,   CachedMemory, 32, 5);
+TPL_USING(Cached_32_64,   CachedMemory, 32, 6);
+TPL_USING(Cached_32_128,  CachedMemory, 32, 7);
+TPL_USING(Cached_32_256,  CachedMemory, 32, 8);
+TPL_USING(Cached_32_512,  CachedMemory, 32, 9);
+TPL_USING(Cached_32_1024, CachedMemory, 32, 10);
+
+TPL_USING(Cached_64_8,    CachedMemory, 64, 3);
+TPL_USING(Cached_64_16,   CachedMemory, 64, 4);
+TPL_USING(Cached_64_32,   CachedMemory, 64, 5);
+TPL_USING(Cached_64_64,   CachedMemory, 64, 6);
+TPL_USING(Cached_64_128,  CachedMemory, 64, 7);
+TPL_USING(Cached_64_256,  CachedMemory, 64, 8);
+TPL_USING(Cached_64_512,  CachedMemory, 64, 9);
+TPL_USING(Cached_64_1024, CachedMemory, 64, 10);

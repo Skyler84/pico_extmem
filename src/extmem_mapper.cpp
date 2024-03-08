@@ -208,17 +208,6 @@ constexpr auto construct_opcode_table(){
     e.handle = handle_none;
     e.type = "NONE";
   }
-  for (int i = 0; i < 0b0100000; i++) {
-    out[i] = {"sh/add/sub/mov/cmp"};
-  }
-  out[0b0100000] = {"data proc"};
-  out[0b0100001] = {"data proc"};
-  out[0b0100010] = {"spec/branch"};
-  out[0b0100011] = {"spec/branch"};
-  out[0b0100100] = {"load lit"};
-  out[0b0100101] = {"load lit"};
-  out[0b0100110] = {"load lit"};
-  out[0b0100111] = {"load lit"};
 
   out[0b0101'000] = OpCodeType{"Store Register", &handle_0101_000_store};
   out[0b0101'001] = OpCodeType{"Store Register Halfword", &handle_0101_001_store};
@@ -236,49 +225,18 @@ constexpr auto construct_opcode_table(){
   for (int i = 0b1000'100; i <= 0b1000'111; i++) out[i] = OpCodeType{"Load Register Halfword", &handle_1000_1xx_load};
   for (int i = 0b1001'000; i <= 0b1001'011; i++) out[i] = OpCodeType{"Store Register", &handle_1001_0xx_store};
   for (int i = 0b1001'100; i <= 0b1001'111; i++) out[i] = OpCodeType{"Load Register", &handle_1001_1xx_load};
-  for (int i = 0b1010000; i <= 0b1010111; i++) {
-    out[i] = {"gen pc rel"};
-  }
-  for (int i = 0b1011'000; i <= 0b1011'111; i++) {
-    out[i] = {"misc"};
-  }
+  
   for (int i = 0b1100'000; i <= 0b1100'011; i++) {
     out[i] = OpCodeType{"Store Multiple", handle_1100_0xx_stm};
   }
   for (int i = 0b1100'100; i <= 0b1100'111; i++) {
     out[i] = OpCodeType{"Load Multiple", handle_1100_1xx_ldm};
   }
-  for (int i = 0b1101'000; i <= 0b1101'111; i++) {
-    out[i] = {"cond br/svc"};
-  }
-  for (int i = 0b11100'00; i <= 0b11100'11; i++) {
-    out[i] = {"br"};
-  }
-
   return out;
 }
 
 auto opcode_types = construct_opcode_table();
 
-void ExtmemMapper::handle_hardfault(void *_ps) {
-  exception_pushstack *ps = (exception_pushstack*)_ps;
-  PRINT("hardfault\n");
-  for (int i = 0; i < 8; i++) {
-    PRINT("r%d %08lx\n", i, reg_get_value(i, ps));
-  }
-  PRINT("lr %p\n", reg_get_value(Registers::LR, ps));
-  PRINT("sp %p\n", reg_get_value(Registers::SP, ps));
-  PRINT("pc %p\n", reg_get_value(Registers::PC, ps));
-  uint16_t cur_thumb_instr = *(uint16_t*)(ps->PC);
-  int opcode_nbits=7;
-  PRINT("%s\n", opcode_types[cur_thumb_instr>>(16-opcode_nbits)].type);
-
-  // ps->PC += sizeof(uint16_t);
-
-  if (opcode_types[cur_thumb_instr>>(16-opcode_nbits)].handle) {
-    (*opcode_types[cur_thumb_instr>>(16-opcode_nbits)].handle)(cur_thumb_instr, ps);
-  }
-}
 
 __attribute__((naked))
 void ExtmemMapper::hardfault_handler(void) {

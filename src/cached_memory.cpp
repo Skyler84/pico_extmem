@@ -100,11 +100,10 @@ void CachedMemory<u1, u2>::write_data(uintptr_t addr, uint32_t nbytes, const uin
 template<unsigned int u1, unsigned int u2>
 typename CachedMemory<u1, u2>::line_index_t CachedMemory<u1, u2>::cache_line_lookup(uintptr_t addr) {
   ASSERT((addr&s_cache_line_addr_mask) == 0);
-  for (line_index_t i = 0; i < s_num_cache_lines; i++) {
-    if (m_cache_line_lookups[i].masked_addr == addr)
-      return i;
-  }
-  return CACHE_MISS;
+  auto idx = m_cache_line_indexes.find(addr);
+  if (idx == m_cache_line_indexes.end())
+    return CACHE_MISS;
+  return idx->second;
 }
 
 template<unsigned int u1, unsigned int u2>
@@ -129,6 +128,7 @@ void CachedMemory<u1, u2>::cache_line_fetch(line_index_t line, uintptr_t addr) {
   ASSERT(m_cache_line_lookups[line].dirty == false);
   ASSERT((addr&s_cache_line_addr_mask) == 0);
   m_cache_line_lookups[line].masked_addr = addr;
+  m_cache_line_indexes.emplace(addr, line);
   m_memory->read_data(addr, s_cache_line_size, m_cache_lines[line].data());
 }
 
@@ -138,6 +138,7 @@ void CachedMemory<u1, u2>::cache_line_evict(line_index_t line) {
   if (m_cache_line_lookups[line].dirty) {
     m_memory->write_data(m_cache_line_lookups[line].masked_addr, s_cache_line_size, m_cache_lines[line].data());
   }
+  m_cache_line_indexes.erase(m_cache_line_lookups[line].masked_addr);
   m_cache_line_lookups[line].masked_addr = -1;
   m_cache_line_lookups[line].dirty = false;
 }

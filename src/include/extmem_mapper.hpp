@@ -12,5 +12,4 @@ protected:
 private:
 
   static void hardfault_handler(void) asm("hardfault_handler");
-  static void handle_hardfault(void *ps) asm("handle_hardfault");
 };
