@@ -24,21 +24,22 @@ void run_tests() {
 }
 
 void run_profiles() {
-  printf("Num Iterations %*s ", 41, "");
+  int w = 40, wint=11;
+  printf("Num Iterations %*s ", w+9, "");
   for (unsigned i = 0; i < g_num_iters.size(); i++){
-    if (i) printf(" : ");
-    printf("% 8d", g_num_iters[i]);
+    if (i) printf(" :");
+    printf("% *d", wint, g_num_iters[i]);
   }
   printf("\n");
   for (auto [mem, desc] : s_test_memories) {
     profile_init(*mem);
     printf("\n");
     for (ProfileFunc *pf = ProfileFunc::all(); pf; pf = pf->next()) {
-      printf("CPS (%16s:%32.32s): ", desc, pf->desc());
+      printf("CPS (%16s:%*.*s): ", desc, w,w, pf->desc());
       for (unsigned i = 0; i < g_num_iters.size(); i++){
-        if (i) printf(" : ");
+        if (i) printf(" :");
         uint32_t cps = profile_cps(pf->func(), g_num_iters[i]);
-        printf("% 8d", cps);
+        printf("% *d", wint, cps);
       }
       printf("\n");
     }
